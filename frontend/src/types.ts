@@ -1,5 +1,6 @@
 export interface JewelryItem {
   id: number
+  sku: string
   name: string
   category: string
   material: string
@@ -13,7 +14,7 @@ export interface JewelryItem {
   created_at: string
 }
 
-export type ItemFormData = Omit<JewelryItem, 'id' | 'created_at'>
+export type ItemFormData = Omit<JewelryItem, 'id' | 'created_at' | 'sku'>
 
 export interface Stats {
   total_items: number

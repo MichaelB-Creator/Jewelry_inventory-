@@ -6,7 +6,7 @@ from datetime import datetime
 from fastapi import FastAPI, HTTPException, Depends, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Text
+from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Text, text
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
 from pydantic import BaseModel
 
@@ -24,6 +24,7 @@ class JewelryItem(Base):
     __tablename__ = "items"
 
     id = Column(Integer, primary_key=True, index=True)
+    sku = Column(String, unique=True, index=True, default="")
     name = Column(String, nullable=False)
     category = Column(String, nullable=False, default="Other")
     material = Column(String, default="")
@@ -38,6 +39,27 @@ class JewelryItem(Base):
 
 
 Base.metadata.create_all(engine)
+
+# Add sku column to existing table if missing (SQLite doesn't auto-migrate)
+try:
+    with engine.connect() as conn:
+        conn.execute(text("ALTER TABLE items ADD COLUMN sku VARCHAR DEFAULT ''"))
+        conn.commit()
+except Exception:
+    pass  # Column already exists
+
+
+def backfill_skus():
+    db = SessionLocal()
+    try:
+        items = db.query(JewelryItem).filter(
+            (JewelryItem.sku.is_(None)) | (JewelryItem.sku == "")
+        ).all()
+        for item in items:
+            item.sku = f"JEW-{item.id:04d}"
+        db.commit()
+    finally:
+        db.close()
 
 
 def seed_if_empty():
@@ -73,6 +95,7 @@ def seed_if_empty():
 
 
 seed_if_empty()
+backfill_skus()
 
 
 class ItemBase(BaseModel):
@@ -98,6 +121,7 @@ class ItemUpdate(ItemBase):
 
 class Item(ItemBase):
     id: int
+    sku: str
     created_at: datetime
 
     class Config:
@@ -138,6 +162,9 @@ def list_items(search: str = "", category: str = "", db: Session = Depends(get_d
 def create_item(item: ItemCreate, db: Session = Depends(get_db)):
     db_item = JewelryItem(**item.model_dump())
     db.add(db_item)
+    db.commit()
+    db.refresh(db_item)
+    db_item.sku = f"JEW-{db_item.id:04d}"
     db.commit()
     db.refresh(db_item)
     return db_item

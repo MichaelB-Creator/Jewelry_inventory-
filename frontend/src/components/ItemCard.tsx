@@ -17,6 +17,7 @@ export default function ItemCard({ item, onEdit, onDelete }: Props) {
         )}
       </div>
       <div className="item-card-body">
+        <span className="item-sku">{item.sku}</span>
         <div className="item-card-header">
           <h3>{item.name}</h3>
           <span className="badge">{item.category}</span>
