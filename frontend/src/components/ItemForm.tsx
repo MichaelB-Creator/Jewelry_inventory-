@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type { JewelryItem, ItemFormData } from '../types'
 import { CATEGORIES } from '../types'
+import { uploadImage } from '../api'
 
 interface Props {
   item: JewelryItem | null
@@ -23,6 +24,8 @@ const emptyForm: ItemFormData = {
 
 export default function ItemForm({ item, onSubmit, onClose }: Props) {
   const [form, setForm] = useState<ItemFormData>(emptyForm)
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (item) {
@@ -40,6 +43,21 @@ export default function ItemForm({ item, onSubmit, onClose }: Props) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     onSubmit(form)
+  }
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    try {
+      const url = await uploadImage(file)
+      update('image_url', url)
+    } catch (err) {
+      console.error('Upload failed', err)
+      alert('Failed to upload image')
+    } finally {
+      setUploading(false)
+    }
   }
 
   return (
@@ -102,10 +120,29 @@ export default function ItemForm({ item, onSubmit, onClose }: Props) {
             </div>
           </div>
           <div className="form-row">
-            <label>Image URL</label>
-            <input type="text" value={form.image_url}
-              onChange={e => update('image_url', e.target.value)}
-              placeholder="https://…" />
+            <label>Picture</label>
+            <div className="upload-area" onClick={() => fileInputRef.current?.click()}>
+              {form.image_url ? (
+                <img src={form.image_url} alt="Preview" className="upload-preview" />
+              ) : (
+                <div className="upload-placeholder">
+                  {uploading ? 'Uploading…' : '📷 Click to upload a photo'}
+                </div>
+              )}
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={handleFileChange}
+            />
+            {form.image_url && (
+              <button type="button" className="btn-remove-image"
+                onClick={() => update('image_url', '')}>
+                Remove photo
+              </button>
+            )}
           </div>
           <div className="form-row">
             <label>Description</label>

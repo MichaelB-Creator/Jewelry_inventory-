@@ -1,8 +1,11 @@
 import os
+import uuid
+import shutil
 from datetime import datetime
 
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Text
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
 from pydantic import BaseModel
@@ -10,6 +13,7 @@ from pydantic import BaseModel
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./data/jewelry.db")
 
 os.makedirs("./data", exist_ok=True)
+os.makedirs("./data/uploads", exist_ok=True)
 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(bind=engine)
@@ -109,6 +113,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.mount("/api/uploads", StaticFiles(directory="./data/uploads"))
+
 
 def get_db():
     db = SessionLocal()
@@ -157,6 +163,17 @@ def delete_item(item_id: int, db: Session = Depends(get_db)):
     db.delete(db_item)
     db.commit()
     return {"ok": True}
+
+
+@app.post("/api/upload")
+def upload_image(file: UploadFile = File(...)):
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in (".jpg", ".jpeg", ".png", ".gif", ".webp"):
+        raise HTTPException(status_code=400, detail="Unsupported file type")
+    filename = f"{uuid.uuid4().hex}{ext}"
+    with open(os.path.join("./data/uploads", filename), "wb") as f:
+        shutil.copyfileobj(file.file, f)
+    return {"url": f"/api/uploads/{filename}"}
 
 
 @app.get("/api/stats")

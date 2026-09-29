@@ -36,6 +36,15 @@ export async function deleteItem(id: number): Promise<void> {
   if (!res.ok) throw new Error('Failed to delete item')
 }
 
+export async function uploadImage(file: File): Promise<string> {
+  const formData = new FormData()
+  formData.append('file', file)
+  const res = await fetch(`${API}/upload`, { method: 'POST', body: formData })
+  if (!res.ok) throw new Error('Failed to upload image')
+  const data = await res.json()
+  return data.url
+}
+
 export async function fetchStats(): Promise<Stats> {
   const res = await fetch(`${API}/stats`)
   if (!res.ok) throw new Error('Failed to fetch stats')
